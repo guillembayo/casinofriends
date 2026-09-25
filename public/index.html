@@ -1,1 +1,35 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casino Friends</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div id="landing">
+  <div class="hero">
+    <div class="logo">♠ <span>CASINO</span> <b>FRIENDS</b> ♠</div>
+    <p>La partida entre amigos empieza aquí</p>
+    <div class="landing-grid">
+      <div class="panel"><h2>Crear partida</h2><input id="createName" placeholder="Tu nombre" maxlength="18"><button id="create">Crear sala</button><small>Recibirás un código y un enlace para compartir.</small></div>
+      <div class="panel"><h2>Unirse</h2><input id="joinName" placeholder="Tu nombre" maxlength="18"><input id="roomCode" placeholder="Código de sala" maxlength="6"><button id="join">Entrar en sala</button><small>Todos los participantes comienzan con 1.000 € virtuales.</small></div>
+    </div>
+    <div class="virtual">💶 DINERO EXCLUSIVAMENTE VIRTUAL · SIN PAGOS NI PREMIOS REALES</div>
+  </div>
+</div>
 
+<div id="app" hidden>
+<header><div class="brand">♠ CASINO <strong>FRIENDS</strong></div><div id="roomInfo"></div><div id="me"></div></header>
+<div class="layout">
+<aside><div class="side-title">PARTICIPANTES <span id="count"></span></div><div id="players"></div><div id="adminControls"></div></aside>
+<main>
+<div class="invite"><div><b>Sala <span id="roomLabel"></span></b><span> · Comparte este código con tus amigos</span></div><button id="copy">🔗 Copiar enlace</button></div>
+<nav><button class="tab active" data-game="roulette">🎡 Ruleta</button><button class="tab" data-game="blackjack">🃏 Blackjack</button><button class="tab" data-game="slots">🎰 Slots</button><button class="tab" data-game="chicken">🐔 Pollo</button></nav>
+
+<section id="roulette" class="game active"><h1>Ruleta española</h1><p class="sub">Elige tu apuesta y gira la rueda.</p>
+<div class="wheel" id="wheel">0</div><div class="betbar"><input id="rAmount" type="number" min="1" placeholder="Cantidad €"><select id="rBet"><option value="rojo">🔴 Rojo</option><option value="negro">⚫ Negro</option><option value="par">Par</option><option value="impar">Impar</option><option value="bajo">1–18</option><option value="alto">19–36</option><option value="0">0</option><option value="7">7</option><option value="13">13</option><option value="21">21</option><option value="36">36</option></select><button id="spin">GIRAR</button></div><div id="rResult" class="result"></div></section>
+
+<section id="blackjack" class="game"><h1>Blackjack</h1><p class="sub">Intenta superar a la banca sin pasar de 21.</p><div class="cards">♠️ 🂠 &nbsp;&nbsp; 🂠 ♦️</div><div class="betbar"><input id="bAmount" type="number" min="1" placeholder="Cantidad €"><button id="blackjackBtn">REPARTIR</button></div><div id="bResult" class="result"></div></section>
+
+<section id="slots" class="game"><h1>Tragaperras</h1><p class="sub">Tres símbolos iguales multiplican tu apuesta.</p><div id="reels">❔ ❔ ❔</div><div class="betbar"><input id="sAmount" type="number" min="1" placeholder="Cantidad €"><button id="slotsBtn">GIRAR</button></div><div id="sResult" class="result"></div></section>
+
+<section id="chicken" class="game"><h1>🐔 Chicken Run</h1><p class="sub">Cada paso aumenta el multiplicador. Puedes cobrar antes de arriesgar el siguiente.</p><div class="road" id="road"><span>🐔</span></div><div class="mult" id="mult">x1.00</div><div class="betbar"><input id="cAmount" type="number" min="1" placeholder="Cantidad €"><button id="cStart">EMPEZAR</button><button id="cStep" disabled>AVANZAR →</button><button id="cCash" disabled>COBRAR 💰</button></div><div id="cResult" class="result"></div></section>
+</main></div></div><div id="toast"></div>
+<script src="/socket.io/socket.io.js"></script><script src="app.js"></script>
+</body></html>
