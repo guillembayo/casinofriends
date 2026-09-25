@@ -1,0 +1,70 @@
+const socket=io();let myId=null,room=null,admin=false,ch={active:false,amount:0,step:0,multiplier:1};
+const $=x=>document.getElementById(x), money=n=>new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n);
+function toast(x){$("toast").textContent=x;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2200)}
+function enter(d){myId=d.id||myId;room=d.room;admin=d.admin;$("landing").hidden=true;$("app").hidden=false;$("roomLabel").textContent=room;$("roomInfo").textContent="Sala "+room}
+$("create").onclick=()=>socket.emit("createRoom",{name:$("createName").value});
+$("join").onclick=()=>socket.emit("joinRoom",{name:$("joinName").value,room:$("roomCode").value});
+$("roomCode").addEventListener("keydown",e=>{if(e.key==="Enter")$("join").click()});
+socket.on("joined",d=>{room=d.room;myId=socket.id;admin=d.admin;enter(d)});
+socket.on("errorMsg",toast);
+socket.on("state",s=>{
+  $("count").textContent=s.players.length;
+  $("players").innerHTML=s.players.map(p=>`<div class="player ${p.id===myId?"me":""}"><span>${esc(p.name)}${p.id===s.adminId?'<span class="admin">👑 ADMIN</span>':""}</span><span class="bal">${money(p.balance)}</span></div>`).join("");
+  const me=s.players.find(p=>p.id===myId);if(me)$("me").textContent=`${esc(me.name)} · ${money(me.balance)}`;
+  $("adminControls").innerHTML=s.adminId===myId?'<button class="adminbtn" id="reset">↻ REINICIAR TODOS</button>':"";
+  if($("reset"))$("reset").onclick=()=>confirm("¿Todos vuelven a 1.000 €?")&&socket.emit("reset");
+});
+$("copy").onclick=async()=>{const url=location.origin+location.pathname+"?room="+room;try{await navigator.clipboard.writeText(url);toast("Enlace copiado")}catch{prompt("Copia este enlace:",url)}};
+const urlRoom=new URLSearchParams(location.search).get("room");if(urlRoom)$("roomCode").value=urlRoom;
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".game").forEach(x=>x.classList.remove("active"));b.classList.add("active");$(b.dataset.game).classList.add("active")});
+$("spin").onclick=()=>socket.emit("roulette",{bet:$("rBet").value,amount:$("rAmount").value});
+socket.on("rouletteResult",r=>{$("wheel").textContent=r.number;$("rResult").textContent=r.win?"🎉 ¡Has ganado "+money(r.profit)+"!":"❌ Has perdido "+money(Math.abs(r.profit))});
+$("slotsBtn").onclick=()=>socket.emit("slots",{amount:$("sAmount").value});
+socket.on("slotsResult",r=>{$("reels").textContent=r.reels.join(" ");$("sResult").textContent=r.win?"🎉 Premio: "+money(r.profit):"❌ Sin premio: "+money(Math.abs(r.profit))});
+$("blackjackBtn").onclick=()=>socket.emit("blackjack",{amount:$("bAmount").value});
+socket.on("blackjackResult",r=>{$("bResult").textContent=`Tú ${r.player} · Banca ${r.dealer} → ${r.result==="win"?"🎉 GANAS":r.result==="push"?"🤝 EMPATE":"❌ PIERDES"}`});
+$("cStart").onclick=()=>{let a=Number($("cAmount").value);if(!a)return toast("Introduce una cantidad.");ch={active:true,amount:a,step:0,multiplier:1};$("cStart").disabled=true;$("cStep").disabled=false;$("cCash").disabled=false;$("road").innerHTML="<span>🐔</span>";$("mult").textContent="x1.00";socket.emit("chickenStart",{amount:a})};
+$("cStep").onclick=()=>socket.emit("chickenStep");
+$("cCash").onclick=()=>socket.emit("chickenCashout");
+socket.on("chickenAlive",c=>{ch=c;$("mult").textContent="x"+c.multiplier.toFixed(2);$("road").innerHTML="<span style='transform:translateX("+Math.min(c.step*65,750)+"px);display:block'>🐔</span>";$("cResult").textContent="Paso "+c.step+" · Sigue vivo. Puedes cobrar "+money(c.amount*c.multiplier)});
+socket.on("chickenDead",()=>{endChicken();$("cResult").textContent="💥 El pollo ha muerto. Apuesta perdida."});
+socket.on("chickenCashoutResult",r=>{endChicken();$("cResult").textContent="💰 Has cobrado "+money(r.winnings)});
+function endChicken(){$("cStart").disabled=false;$("cStep").disabled=true;$("cCash").disabled=true}
+socket.on("resetDone",()=>toast("Partida reiniciada: todos tienen 1.000 €"));
+function esc(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casino Friends</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div id="landing">
+  <div class="hero">
+    <div class="logo">♠ <span>CASINO</span> <b>FRIENDS</b> ♠</div>
+    <p>La partida entre amigos empieza aquí</p>
+    <div class="landing-grid">
+      <div class="panel"><h2>Crear partida</h2><input id="createName" placeholder="Tu nombre" maxlength="18"><button id="create">Crear sala</button><small>Recibirás un código y un enlace para compartir.</small></div>
+      <div class="panel"><h2>Unirse</h2><input id="joinName" placeholder="Tu nombre" maxlength="18"><input id="roomCode" placeholder="Código de sala" maxlength="6"><button id="join">Entrar en sala</button><small>Todos los participantes comienzan con 1.000 € virtuales.</small></div>
+    </div>
+    <div class="virtual">💶 DINERO EXCLUSIVAMENTE VIRTUAL · SIN PAGOS NI PREMIOS REALES</div>
+  </div>
+</div>
+
+<div id="app" hidden>
+<header><div class="brand">♠ CASINO <strong>FRIENDS</strong></div><div id="roomInfo"></div><div id="me"></div></header>
+<div class="layout">
+<aside><div class="side-title">PARTICIPANTES <span id="count"></span></div><div id="players"></div><div id="adminControls"></div></aside>
+<main>
+<div class="invite"><div><b>Sala <span id="roomLabel"></span></b><span> · Comparte este código con tus amigos</span></div><button id="copy">🔗 Copiar enlace</button></div>
+<nav><button class="tab active" data-game="roulette">🎡 Ruleta</button><button class="tab" data-game="blackjack">🃏 Blackjack</button><button class="tab" data-game="slots">🎰 Slots</button><button class="tab" data-game="chicken">🐔 Pollo</button></nav>
+
+<section id="roulette" class="game active"><h1>Ruleta española</h1><p class="sub">Elige tu apuesta y gira la rueda.</p>
+<div class="wheel" id="wheel">0</div><div class="betbar"><input id="rAmount" type="number" min="1" placeholder="Cantidad €"><select id="rBet"><option value="rojo">🔴 Rojo</option><option value="negro">⚫ Negro</option><option value="par">Par</option><option value="impar">Impar</option><option value="bajo">1–18</option><option value="alto">19–36</option><option value="0">0</option><option value="7">7</option><option value="13">13</option><option value="21">21</option><option value="36">36</option></select><button id="spin">GIRAR</button></div><div id="rResult" class="result"></div></section>
+
+<section id="blackjack" class="game"><h1>Blackjack</h1><p class="sub">Intenta superar a la banca sin pasar de 21.</p><div class="cards">♠️ 🂠 &nbsp;&nbsp; 🂠 ♦️</div><div class="betbar"><input id="bAmount" type="number" min="1" placeholder="Cantidad €"><button id="blackjackBtn">REPARTIR</button></div><div id="bResult" class="result"></div></section>
+
+<section id="slots" class="game"><h1>Tragaperras</h1><p class="sub">Tres símbolos iguales multiplican tu apuesta.</p><div id="reels">❔ ❔ ❔</div><div class="betbar"><input id="sAmount" type="number" min="1" placeholder="Cantidad €"><button id="slotsBtn">GIRAR</button></div><div id="sResult" class="result"></div></section>
+
+<section id="chicken" class="game"><h1>🐔 Chicken Run</h1><p class="sub">Cada paso aumenta el multiplicador. Puedes cobrar antes de arriesgar el siguiente.</p><div class="road" id="road"><span>🐔</span></div><div class="mult" id="mult">x1.00</div><div class="betbar"><input id="cAmount" type="number" min="1" placeholder="Cantidad €"><button id="cStart">EMPEZAR</button><button id="cStep" disabled>AVANZAR →</button><button id="cCash" disabled>COBRAR 💰</button></div><div id="cResult" class="result"></div></section>
+</main></div></div><div id="toast"></div>
+<script src="/socket.io/socket.io.js"></script><script src="app.js"></script>
+</body></html>
+*{box-sizing:border-box}body{margin:0;background:#080b10;color:#f7f7f8;font-family:Inter,system-ui,Arial}.hero{min-height:100vh;display:grid;place-items:center;align-content:center;padding:30px;background:radial-gradient(circle at top,#26344b,#080b10 55%)}.logo{font-size:42px;letter-spacing:3px;text-align:center}.logo span{color:#d9b45b}.logo b{color:#fff}.hero>p{text-align:center;color:#aab3c2;font-size:17px}.landing-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:780px;width:100%;margin:25px auto}.panel{background:#121823;border:1px solid #293344;border-radius:18px;padding:25px;display:flex;flex-direction:column;gap:11px}.panel h2{margin:0 0 8px}.panel small{color:#8e98a8}.virtual{text-align:center;color:#768194;font-size:11px;margin-top:10px}input,select,button{font:inherit}input,select{background:#0b1018;border:1px solid #344055;color:#fff;border-radius:9px;padding:12px}button{background:#d4a94e;color:#111;border:0;border-radius:9px;padding:12px 16px;font-weight:800;cursor:pointer}button:hover{filter:brightness(1.1)}header{height:68px;background:#101621;border-bottom:1px solid #283242;display:flex;align-items:center;justify-content:space-between;padding:0 24px}.brand{font-size:18px}.brand strong{color:#d4a94e}.layout{display:grid;grid-template-columns:245px 1fr;min-height:calc(100vh - 68px)}aside{background:#0d131c;border-right:1px solid #283242;padding:20px}.side-title{font-size:11px;color:#8792a4;font-weight:800;letter-spacing:1px;margin-bottom:13px}.player{padding:12px;background:#151d29;border:1px solid #273142;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;gap:5px}.player.me{border-color:#d4a94e}.player .bal{color:#69e09e;font-weight:800}.admin{display:block;color:#d4a94e;font-size:9px;margin-top:3px}.adminbtn{width:100%;margin-top:15px;background:#9d2c2c;color:#fff}main{width:min(1050px,100%);padding:22px;margin:auto}.invite{background:#111924;border:1px solid #293446;border-radius:12px;padding:12px 15px;display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;color:#aeb7c5}.invite b{color:#fff}.invite button{padding:8px 12px;background:#273244;color:#fff}nav{display:flex;gap:7px;margin-bottom:15px;flex-wrap:wrap}.tab{background:#182231;color:#bdc5d1}.tab.active{background:#d4a94e;color:#111}.game{display:none;background:#111821;border:1px solid #293446;border-radius:18px;padding:30px;min-height:500px}.game.active{display:block}h1{margin:0 0 5px;font-size:28px}.sub{color:#8994a5;margin-top:0}.wheel{width:210px;height:210px;margin:35px auto;border-radius:50%;display:grid;place-items:center;font-size:50px;font-weight:900;border:12px solid #d4a94e;background:conic-gradient(#9d2424 0 8%,#151515 8% 16%,#9d2424 16% 24%,#151515 24% 32%,#9d2424 32% 40%,#151515 40% 48%,#9d2424 48% 56%,#151515 56% 64%,#9d2424 64% 72%,#151515 72% 80%,#9d2424 80% 88%,#151515 88%)}.betbar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.result{text-align:center;font-size:18px;min-height:32px;margin-top:22px}.cards{text-align:center;font-size:70px;margin:70px 0}.#reels{}.reels,#reels{text-align:center;font-size:72px;margin:75px 0}.road{height:100px;border-radius:12px;margin:55px 0 15px;overflow:hidden;background:repeating-linear-gradient(90deg,#202b3a 0 82px,#344155 82px 86px);display:flex;align-items:center;padding-left:20px;font-size:52px;transition:.3s}.road span{transition:.3s}.mult{text-align:center;font-size:34px;font-weight:900;color:#d4a94e;margin-bottom:18px}#toast{position:fixed;right:20px;bottom:20px;padding:13px 17px;border-radius:10px;background:#202b3a;display:none}#app[hidden],#landing[hidden]{display:none!important}@media(max-width:720px){.landing-grid{grid-template-columns:1fr}.logo{font-size:30px}.layout{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid #283242}.game{padding:20px}.invite{align-items:flex-start;gap:10px}.cards{font-size:45px;margin:50px 0}.wheel{width:170px;height:170px}header{padding:0 12px}.brand{font-size:14px}}
